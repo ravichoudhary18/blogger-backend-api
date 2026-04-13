@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 from django.db import connection
+from django.db.models import F
 from .models import Comment, Like, Share
 from posts.models import Post
 from .serializers import CommentSerializer
@@ -64,7 +65,8 @@ class CommentView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = CommentSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(user=request.user)
+            comment = serializer.save(user=request.user)
+            Post.objects.filter(pk=comment.post_id).update(total_comments=F("total_comments") + 1)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -81,9 +83,43 @@ class CommentView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        comment.delete()
+        post_id = comment.post_id
+        if comment.status != "deleted":
+            comment.status = "deleted"
+            comment.save()
+            Post.objects.filter(pk=post_id).update(total_comments=F("total_comments") - 1)
+        
         return Response(
-            {"message": "Comment deleted successfully."},
+            {"message": "Comment soft-deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
+
+class CommentHardDeleteView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def delete(self, request, pk, *args, **kwargs):
+        comment = get_object_or_404(Comment, pk=pk)
+
+        # Permission: comment author OR post author can delete
+        is_comment_author = comment.user == request.user
+        is_post_author = comment.post.author == request.user
+
+        if not (is_comment_author or is_post_author):
+            return Response(
+                {"error": "You do not have permission to delete this comment."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        post_id = comment.post_id
+        is_active = comment.status == "active"
+        comment.delete()
+
+        if is_active:
+            Post.objects.filter(pk=post_id).update(total_comments=F("total_comments") - 1)
+
+        return Response(
+            {"message": "Comment permanently deleted."},
             status=status.HTTP_204_NO_CONTENT,
         )
 
@@ -143,15 +179,52 @@ class LikeView(APIView):
         like, created = Like.objects.get_or_create(user=request.user, post=post)
 
         if not created:
-            like.delete()
-            return Response(
-                {"message": "Post unliked successfully."},
-                status=status.HTTP_200_OK,
-            )
+            if like.status == "active":
+                like.status = "deleted"
+                like.save()
+                Post.objects.filter(pk=post_id).update(total_likes=F("total_likes") - 1)
+                return Response(
+                    {"message": "Post unliked successfully."},
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                like.status = "active"
+                like.save()
+                Post.objects.filter(pk=post_id).update(total_likes=F("total_likes") + 1)
+                return Response(
+                    {"message": "Post liked successfully."},
+                    status=status.HTTP_201_CREATED,
+                )
 
+        Post.objects.filter(pk=post_id).update(total_likes=F("total_likes") + 1)
         return Response(
             {"message": "Post liked successfully."},
             status=status.HTTP_201_CREATED,
+        )
+
+
+class LikeHardDeleteView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def delete(self, request, pk, *args, **kwargs):
+        like = get_object_or_404(Like, pk=pk)
+
+        if like.user != request.user:
+            return Response(
+                {"error": "You do not have permission to delete this like."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        post_id = like.post_id
+        is_active = like.status == "active"
+        like.delete()
+
+        if is_active:
+            Post.objects.filter(pk=post_id).update(total_likes=F("total_likes") - 1)
+
+        return Response(
+            {"message": "Like permanently deleted."},
+            status=status.HTTP_204_NO_CONTENT,
         )
 
 
@@ -208,6 +281,9 @@ class ShareView(APIView):
 
         # Use get_or_create to avoid duplicate share records for the same user and post
         share, created = Share.objects.get_or_create(user=request.user, post=post)
+
+        if created:
+            Post.objects.filter(pk=post_id).update(total_shares=F("total_shares") + 1)
 
         # Generate shareable URL for the post
         base_url = request.build_absolute_uri("/")

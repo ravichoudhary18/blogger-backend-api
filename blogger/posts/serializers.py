@@ -4,9 +4,6 @@ from .models import Post
 
 class PostSerializer(serializers.ModelSerializer):
     author_username = serializers.ReadOnlyField(source="author.username")
-    likes_count = serializers.SerializerMethodField()
-    comments_count = serializers.SerializerMethodField()
-    share_count = serializers.SerializerMethodField()
     status = serializers.ChoiceField(
         choices=Post.STATUS_CHOICES,
         required=False,
@@ -24,9 +21,9 @@ class PostSerializer(serializers.ModelSerializer):
             "status",
             "author",
             "author_username",
-            "likes_count",
-            "comments_count",
-            "share_count",
+            "total_likes",
+            "total_comments",
+            "total_shares",
             "created_at",
             "updated_at",
         )
@@ -36,12 +33,3 @@ class PostSerializer(serializers.ModelSerializer):
             "updated_at": {"read_only": True},
             "status": {"required": False},
         }
-
-    def get_likes_count(self, obj):
-        return obj.likes.count()
-
-    def get_comments_count(self, obj):
-        return obj.comments.count()
-
-    def get_share_count(self, obj):
-        return obj.shares.count()

@@ -180,3 +180,22 @@ class HardDeleteView(APIView):
                 {"error": "Database error", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class UserPostView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = PageNumberPagination
+
+    def get(self, request, *args, **kwargs):
+        # Retrieve all non-deleted posts for the logged-in user including drafts
+        queryset = Post.objects.filter(author=request.user).exclude(status='deleted').order_by('-created_at')
+
+        paginator = self.pagination_class()
+        paginated_queryset = paginator.paginate_queryset(queryset, request)
+
+        if paginated_queryset is not None:
+            serializer = PostSerializer(paginated_queryset, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = PostSerializer(queryset, many=True)
+        return Response(serializer.data)

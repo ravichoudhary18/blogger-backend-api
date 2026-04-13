@@ -20,6 +20,9 @@ class Post(models.Model):
     updated_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, related_name="updated_posts"
     )
+    total_likes = models.PositiveIntegerField(default=0)
+    total_comments = models.PositiveIntegerField(default=0)
+    total_shares = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
