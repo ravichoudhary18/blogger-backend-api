@@ -80,6 +80,72 @@
                         }
                     },
                     "response": []
+                },
+                {
+                    "name": "User List",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/users/?username=&email=",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "users",
+                                ""
+                            ],
+                            "query": [
+                                {
+                                    "key": "username",
+                                    "value": ""
+                                },
+                                {
+                                    "key": "email",
+                                    "value": ""
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Token Refresh",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"refresh\": \"\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/token/refresh/",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "token",
+                                "refresh",
+                                ""
+                            ]
+                        }
+                    },
+                    "response": []
                 }
             ]
         },
@@ -141,13 +207,29 @@
                             }
                         ],
                         "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"title\": \"My First Post\",\n    \"content\": \"This post is created via Stored Procedure.\",\n    \"status\": \"public\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "title",
+                                    "value": "My First Post",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "content",
+                                    "value": "This post is created via Stored Procedure.",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "public",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "thumbnail",
+                                    "type": "file",
+                                    "src": []
                                 }
-                            }
+                            ]
                         },
                         "url": {
                             "raw": "{{baseUrl}}/api/posts/create/",
@@ -202,13 +284,29 @@
                             }
                         ],
                         "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"title\": \"Updated Title\",\n    \"content\": \"Full update content\",\n    \"status\": \"public\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "title",
+                                    "value": "Updated Title",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "content",
+                                    "value": "Full update content",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "public",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "thumbnail",
+                                    "type": "file",
+                                    "src": []
                                 }
-                            }
+                            ]
                         },
                         "url": {
                             "raw": "{{baseUrl}}/api/posts/{{postId}}/",
@@ -307,6 +405,111 @@
                                 "posts",
                                 "{{postId}}",
                                 "hard-delete",
+                                ""
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List My Posts",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/posts/my-posts/?page=1&page_size=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "posts",
+                                "my-posts",
+                                ""
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "page_size",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Add Document to Post",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": []
+                                },
+                                {
+                                    "key": "description",
+                                    "value": "Document description",
+                                    "type": "text"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/posts/{{postId}}/documents/",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "posts",
+                                "{{postId}}",
+                                "documents",
+                                ""
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Document",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/posts/documents/{{documentId}}/",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "posts",
+                                "documents",
+                                "{{documentId}}",
                                 ""
                             ]
                         }
@@ -448,6 +651,34 @@
                                 }
                             },
                             "response": []
+                        },
+                        {
+                            "name": "Hard Delete Comment",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{accessToken}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/interaction/comments/{{commentId}}/hard-delete/",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "interaction",
+                                        "comments",
+                                        "{{commentId}}",
+                                        "hard-delete",
+                                        ""
+                                    ]
+                                }
+                            },
+                            "response": []
                         }
                     ]
                 },
@@ -527,6 +758,34 @@
                                 }
                             },
                             "response": []
+                        },
+                        {
+                            "name": "Hard Delete Like",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{accessToken}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/interaction/likes/{{likeId}}/hard-delete/",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "interaction",
+                                        "likes",
+                                        "{{likeId}}",
+                                        "hard-delete",
+                                        ""
+                                    ]
+                                }
+                            },
+                            "response": []
                         }
                     ]
                 },
@@ -585,7 +844,7 @@
                                 ],
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n    \"post\": 1\n}",
+                                    "raw": "{\n    \"post\": 1,\n    \"user_list\": [1, 2]\n}",
                                     "options": {
                                         "raw": {
                                             "language": "json"
@@ -608,6 +867,43 @@
                             "response": []
                         }
                     ]
+                },
+                {
+                    "name": "User Interaction History",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/interaction/my/{{interactionType}}/?page=1&page_size=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "interaction",
+                                "my",
+                                "{{interactionType}}",
+                                ""
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "page_size",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
                 }
             ]
         }
@@ -624,6 +920,23 @@
         {
             "key": "accessToken",
             "value": ""
+        },
+        {
+            "key": "documentId",
+            "value": "1"
+        },
+        {
+            "key": "likeId",
+            "value": "1"
+        },
+        {
+            "key": "commentId",
+            "value": "1"
+        },
+        {
+            "key": "interactionType",
+            "value": "liked-posts",
+            "description": "liked-posts, commented-posts, or shared-posts"
         }
     ]
 }

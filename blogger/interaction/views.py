@@ -9,6 +9,7 @@ from .models import Comment, Like, Share
 from posts.models import Post
 import threading
 from django.core.mail import send_mail
+from django.conf import settings
 from django.contrib.auth.models import User
 import difflib
 from .serializers import (
@@ -21,17 +22,18 @@ from .serializers import (
 
 def send_share_emails(sender_username, post_title, share_url, recipient_emails):
     """
-    Helper function to send emails in a background thread.
+    Helper function to send emails one by one in a background thread.
     """
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@blogger.com")
     subject = f"{sender_username} shared a post with you!"
-    message = f"Hello,\n\n{sender_username} thought you might like this post: {post_title}.\n\nYou can view it here: {share_url}\n\nHappy reading!"
-    from_email = "noreply@blogger.com"
     
-    try:
-        send_mail(subject, message, from_email, recipient_emails)
-    except Exception as e:
-        # In a real app, you'd log this more robustly
-        print(f"Error sending share emails: {str(e)}")
+    for email in recipient_emails:
+        message = f"Hello,\n\n{sender_username} thought you might like this post: {post_title}.\n\nYou can view it here: {share_url}\n\nHappy reading!"
+        try:
+            send_mail(subject, message, from_email, [email])
+        except Exception as e:
+            # In a real app, you'd log this more robustly
+            print(f"Error sending share email to {email}: {str(e)}")
 
 
 class CommentView(APIView):
@@ -294,7 +296,7 @@ class ShareView(APIView):
 
     def post(self, request, *args, **kwargs):
         post_id = request.data.get("post")
-        shared_with_ids = request.data.get("shared_with", [])
+        shared_with_ids = request.data.get("user_list", [])
 
         if not post_id:
             return Response(

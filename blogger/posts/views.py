@@ -95,7 +95,7 @@ class PostView(APIView):
                 with connection.cursor() as cursor:
                     # Using SELECT instead of CALL as we changed the procedure to a function
                     cursor.execute(
-                        "SELECT add_post(%s, %s, %s, %s, %s, %s, %s)",
+                        "SELECT add_post(%s, %s, %s, %s, %s, %s, %s, %s)",
                         [
                             serializer.validated_data["title"],
                             serializer.validated_data["content"],
@@ -104,6 +104,7 @@ class PostView(APIView):
                             system_now,
                             token_iat,
                             None, # Backgrounding thumbnail
+                            serializer.validated_data.get("scheduled_at"),
                         ],
                     )
                     post_id = cursor.fetchone()[0]
@@ -132,6 +133,9 @@ class PostView(APIView):
         serializer = PostSerializer(post, data=request.data, partial=partial)
         if serializer.is_valid():
             token_iat = self.get_token_iat()
+            thumbnail_bytes = None
+            thumbnail_name = None
+
             if partial and set(serializer.validated_data.keys()) == {"status"}:
                 proc = "update_post_status(%s, %s, %s, %s)"
                 params = [
@@ -142,13 +146,11 @@ class PostView(APIView):
                 ]
             else:
                 thumbnail = request.FILES.get("thumbnail")
-                thumbnail_bytes = None
-                thumbnail_name = None
                 if thumbnail:
                     thumbnail_bytes = thumbnail.read()
                     thumbnail_name = thumbnail.name
 
-                proc = "update_post(%s, %s, %s, %s, %s, %s, %s)"
+                proc = "update_post(%s, %s, %s, %s, %s, %s, %s, %s)"
                 params = [
                     pk,
                     serializer.validated_data.get("title", post.title),
@@ -157,6 +159,7 @@ class PostView(APIView):
                     request.user.id,
                     token_iat,
                     None, # Backgrounding thumbnail update
+                    serializer.validated_data.get("scheduled_at", post.scheduled_at),
                 ]
 
             try:

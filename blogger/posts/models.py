@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 class Post(models.Model):
     STATUS_CHOICES = (
         ("draft", "draft"),
+        ("scheduled", "scheduled"),
         ("public", "public"),
         ("deleted", "deleted"),
     )
@@ -13,16 +14,17 @@ class Post(models.Model):
     content = models.TextField()
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="posts")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="draft",
-    help_text="Select the publication status (draft, public or deleted).")
+    help_text="Select the publication status (draft, scheduled, public or deleted).")
+    scheduled_at = models.DateTimeField(null=True, blank=True, help_text="Publication date and time for scheduled posts.")
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, related_name="created_posts"
     )
     updated_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, related_name="updated_posts"
     )
-    total_likes = models.PositiveIntegerField(default=0)
-    total_comments = models.PositiveIntegerField(default=0)
-    total_shares = models.PositiveIntegerField(default=0)
+    total_likes = models.PositiveIntegerField(default=0, null=True, blank=True)
+    total_comments = models.PositiveIntegerField(default=0, null=True, blank=True)
+    total_shares = models.PositiveIntegerField(default=0, null=True, blank=True)
     thumbnail = models.ImageField(upload_to="thumbnails/", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -17,6 +17,45 @@ def run_in_background(func):
         return thread
     return wrapper
 
+import time 
+from django.utils import timezone
+from django.db import close_old_connections
+
+def start_scheduled_post_publisher():
+    """
+    Starts a background thread to publish scheduled posts.
+    """
+    def publisher_loop():
+        logging.info("Scheduled post publisher thread started.")
+        while True:
+            try:
+                # Close old connections to prevent 'connection closed' errors in long-running threads
+                close_old_connections()
+                
+                now = timezone.now()
+                # Find posts that are scheduled and due
+                due_posts = Post.objects.filter(
+                    status="scheduled",
+                    scheduled_at__lte=now
+                )
+                
+                count = due_posts.count()
+                if count > 0:
+                    logging.info(f"Publishing {count} scheduled posts.")
+                    # Update status to public
+                    due_posts.update(status="public", updated_at=now)
+                
+            except Exception as e:
+                logging.error(f"Error in scheduled post publisher: {str(e)}")
+            
+            # Run every 60 seconds
+            time.sleep(60)
+
+    thread = threading.Thread(target=publisher_loop)
+    thread.daemon = True
+    thread.start()
+    return thread
+
 def process_document_background(document_id):
     """
     Simulated background processing for a document.

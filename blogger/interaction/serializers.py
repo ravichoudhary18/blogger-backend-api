@@ -54,7 +54,9 @@ class ShareSerializer(serializers.ModelSerializer):
         read_only_fields = ("user", "created_at")
 
 class InteractionPostSerializer(serializers.ModelSerializer):
+    author = serializers.IntegerField(read_only=True)
     author_username = serializers.CharField(read_only=True)
+    shared_with = serializers.JSONField(read_only=True, required=False)
     last_commented_at = serializers.DateTimeField(read_only=True, required=False)
 
     class Meta:
@@ -66,6 +68,7 @@ class InteractionPostSerializer(serializers.ModelSerializer):
             "thumbnail",
             "author",
             "author_username",
+            "shared_with",
             "created_at",
             "updated_at",
             "last_commented_at",
