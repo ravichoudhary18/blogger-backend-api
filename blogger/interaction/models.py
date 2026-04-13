@@ -43,6 +43,7 @@ class Share(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="shares")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="shares")
     platform = models.CharField(max_length=50, blank=True, null=True)
+    shared_with = models.ManyToManyField(User, related_name="received_shares", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -1,17 +1,24 @@
 from datetime import datetime
 from django.db import connection
 from django.utils import timezone
-from rest_framework import status, permissions
+from rest_framework import status, permissions, parsers
+from rest_framework.response import Response
+from rest_framework import status, permissions, parsers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
-from .models import Post
-from .serializers import PostSerializer
+from django.core.files.storage import default_storage
+from .models import Post, Document
+from .serializers import PostSerializer, DocumentSerializer
+from .utils import process_document_background, process_thumbnail_background, run_in_background
+import os
+import logging
 
 
 class PostView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
+    parser_classes = (parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser)
     pagination_class = PageNumberPagination
 
     def get_token_iat(self):
@@ -76,11 +83,19 @@ class PostView(APIView):
         if serializer.is_valid():
             system_now = timezone.now()
             token_iat = self.get_token_iat()
+            
+            thumbnail = request.FILES.get("thumbnail")
+            thumbnail_bytes = None
+            thumbnail_name = None
+            if thumbnail:
+                thumbnail_bytes = thumbnail.read()
+                thumbnail_name = thumbnail.name
 
             try:
                 with connection.cursor() as cursor:
+                    # Using SELECT instead of CALL as we changed the procedure to a function
                     cursor.execute(
-                        "CALL add_post(%s, %s, %s, %s, %s, %s)",
+                        "SELECT add_post(%s, %s, %s, %s, %s, %s, %s)",
                         [
                             serializer.validated_data["title"],
                             serializer.validated_data["content"],
@@ -88,10 +103,16 @@ class PostView(APIView):
                             serializer.validated_data.get("status", "draft"),
                             system_now,
                             token_iat,
+                            None, # Backgrounding thumbnail
                         ],
                     )
+                    post_id = cursor.fetchone()[0]
+
+                if thumbnail_bytes:
+                    run_in_background(process_thumbnail_background)(post_id, thumbnail_bytes, thumbnail_name)
+
                 return Response(
-                    {"message": "Post created successfully."},
+                    {"message": "Post created successfully.", "id": post_id},
                     status=status.HTTP_201_CREATED,
                 )
             except Exception as e:
@@ -103,6 +124,11 @@ class PostView(APIView):
 
     def update(self, request, pk, partial=False):
         post = get_object_or_404(Post, pk=pk)
+        if post.author != request.user:
+            return Response(
+                {"error": "You do not have permission to update this post."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = PostSerializer(post, data=request.data, partial=partial)
         if serializer.is_valid():
             token_iat = self.get_token_iat()
@@ -115,7 +141,14 @@ class PostView(APIView):
                     token_iat,
                 ]
             else:
-                proc = "update_post(%s, %s, %s, %s, %s, %s)"
+                thumbnail = request.FILES.get("thumbnail")
+                thumbnail_bytes = None
+                thumbnail_name = None
+                if thumbnail:
+                    thumbnail_bytes = thumbnail.read()
+                    thumbnail_name = thumbnail.name
+
+                proc = "update_post(%s, %s, %s, %s, %s, %s, %s)"
                 params = [
                     pk,
                     serializer.validated_data.get("title", post.title),
@@ -123,11 +156,16 @@ class PostView(APIView):
                     serializer.validated_data.get("status", post.status),
                     request.user.id,
                     token_iat,
+                    None, # Backgrounding thumbnail update
                 ]
 
             try:
                 with connection.cursor() as cursor:
                     cursor.execute(f"CALL {proc}", params)
+                
+                if thumbnail_bytes:
+                    run_in_background(process_thumbnail_background)(pk, thumbnail_bytes, thumbnail_name)
+                    
                 return Response({"message": "Post updated successfully."})
             except Exception as e:
                 return Response(
@@ -143,7 +181,12 @@ class PostView(APIView):
         return self.update(request, pk, partial=True)
 
     def delete(self, request, pk, *args, **kwargs):
-        get_object_or_404(Post, pk=pk)
+        post = get_object_or_404(Post, pk=pk)
+        if post.author != request.user:
+            return Response(
+                {"error": "You do not have permission to delete this post."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         token_iat = self.get_token_iat()
         try:
             with connection.cursor() as cursor:
@@ -167,7 +210,12 @@ class HardDeleteView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def delete(self, request, pk, *args, **kwargs):
-        get_object_or_404(Post, pk=pk)
+        post = get_object_or_404(Post, pk=pk)
+        if post.author != request.user:
+            return Response(
+                {"error": "You do not have permission to permanently delete this post."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         try:
             with connection.cursor() as cursor:
                 cursor.execute("CALL delete_post(%s)", [pk])
@@ -199,3 +247,50 @@ class UserPostView(APIView):
 
         serializer = PostSerializer(queryset, many=True)
         return Response(serializer.data)
+
+
+class DocumentView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    parser_classes = (parsers.MultiPartParser, parsers.FormParser)
+
+    def post(self, request, post_id):
+        post = get_object_or_404(Post, id=post_id)
+        # Check if the user is the author
+        if post.author != request.user:
+            return Response(
+                {"error": "You are not authorized to add documents to this post."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        file = request.FILES.get("file")
+        if not file:
+            return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
+
+        description = request.data.get("description", "")
+        
+        document = Document.objects.create(
+            post=post,
+            file=file,
+            description=description
+        )
+
+        # Trigger background processing
+        run_in_background(process_document_background)(document.id)
+        
+        serializer = DocumentSerializer(document)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, pk):
+        document = get_object_or_404(Document, pk=pk)
+        if document.post.author != request.user:
+            return Response(
+                {"error": "You are not authorized to delete this document."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        
+        file_path = document.file.path
+        document.delete()
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            
+        return Response({"message": "Document deleted successfully."}, status=status.HTTP_200_OK)

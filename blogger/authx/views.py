@@ -4,7 +4,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import RegisterSerializer, MyTokenObtainPairSerializer
+from .serializers import RegisterSerializer, MyTokenObtainPairSerializer, UserBasicInfoSerializer
 
 
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -46,3 +46,19 @@ class RegisterView(generics.CreateAPIView):
                 {"error": "Registration failed.", "details": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+class UserListView(generics.ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserBasicInfoSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        username = self.request.query_params.get("username")
+        email = self.request.query_params.get("email")
+
+        if username:
+            queryset = queryset.filter(username__icontains=username)
+        if email:
+            queryset = queryset.filter(email__icontains=email)
+
+        return queryset

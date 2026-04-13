@@ -140,3 +140,9 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         }
 
         return data
+
+
+class UserBasicInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("id", "username", "email")

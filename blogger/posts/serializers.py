@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from .models import Post
+from .models import Post, Document
+
+
+class DocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Document
+        fields = ("id", "file", "description", "uploaded_at")
+        read_only_fields = ("id", "uploaded_at")
 
 
 class PostSerializer(serializers.ModelSerializer):
@@ -19,6 +26,7 @@ class PostSerializer(serializers.ModelSerializer):
             "title",
             "content",
             "status",
+            "thumbnail",
             "author",
             "author_username",
             "total_likes",
